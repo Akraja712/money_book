@@ -111,7 +111,6 @@ if ($stock == 0) {
     return false;
 }
 
-
 $sql = "SELECT COUNT(*) AS count FROM user_plan WHERE plan_id = $plan_id AND user_id = $user_id";
 $db->sql($sql);
 $res_check_plan = $db->getResult();
