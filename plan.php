@@ -152,8 +152,14 @@ if (isset($_POST['btnactivate'])) {
                                         Daily Income: <strong><?php echo '₹'.htmlspecialchars($plan['daily_income']); ?></strong>
                                     </p>
                                     <p class="card-text">
-                                        Invite Bonus: <strong><?php echo '₹'. htmlspecialchars($plan['invite_bonus']); ?></strong>
-                                    </p>
+                                        <p class="card-text">
+                                            Invite Bonus: <strong><?php echo '₹'. htmlspecialchars($plan['invite_bonus']); ?></strong>
+                                        </p>
+                                        <p class="card-text">
+                                            <p class="card-text" style="color: blue;">
+                                                Num Of Times: <strong><span style="color: blue;"><?php echo ''. htmlspecialchars($plan['num_times']); ?></span></strong>
+                                            </p>
+                                        </p>
                                     <p class="card-text">
                                         Validity: <span class="highlight">Unlimited Days</span>
                                     </p>
