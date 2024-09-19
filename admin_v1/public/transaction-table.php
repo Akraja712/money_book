@@ -14,6 +14,11 @@
                 <div class="box">
                     <div class="box-header">
                     <div class="row">
+                                <div class="form-group col-md-3">
+                                     <a href="export-transactions.php" class="btn btn-primary"><i class="fa fa-download"></i> Export Transactions</a>
+                                   </div>                 
+                                </div>
+                    <div class="row">
                                     <div class="form-group col-md-3">
                                             <h4 class="box-title">Filter by Type </h4>
                                             <select id='type' name="type" class='form-control'>

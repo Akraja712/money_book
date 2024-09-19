@@ -12,7 +12,7 @@ if (!$user_id) {
 
 $data = array(
     "user_id" => $user_id,
-    "type" => "member",
+    "type" => "leader",
 );
 
 $apiUrl = API_URL . "plan_list.php";
@@ -153,18 +153,15 @@ if (isset($_POST['btnactivate'])) {
                                         Daily Income: <strong><?php echo '₹'.htmlspecialchars($plan['daily_income']); ?></strong>
                                     </p>
                                     <p class="card-text">
-                                        Invite Bonus: <strong><?php echo '₹'. htmlspecialchars($plan['invite_bonus']); ?></strong>
-                                    </p>
-                                    <p class="card-text">
                                             <p class="card-text" style="color: blue;">
-                                                Num Of Times: <strong><span style="color: blue;"><?php echo ''. htmlspecialchars($plan['num_times']); ?></span></strong>
+                                                Minimum <?php echo $plan['min_refers']; ?> Refers Need 
                                             </p>
                                         </p>
                                     <p class="card-text">
                                         Validity: <span class="highlight">Unlimited Days</span>
                                     </p>
                                    <br>
-                                    <form action="plan.php" method="post" style="display: inline;">
+                                    <form action="leader_plan.php" method="post" style="display: inline;">
                                         <input type="hidden" name="plan_id" value="<?php echo htmlspecialchars($plan['id']); ?>">
                                         <button type="submit" name="btnactivate"  style="background-color:#3eb3a8; color:white;" class="btn">Purchase</button>
                                     </form>

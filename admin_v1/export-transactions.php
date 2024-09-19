@@ -4,19 +4,14 @@ $db = new Database();
 $db->connect();
 
 $currentdate = date('Y-m-d');
-
-// SQL query to join withdrawals and users table using user_id and filter by status = 0
-$sql_query = "
-	SELECT w.id, w.status, u.name, u.mobile, w.amount, w.datetime, u.bank, u.account_num, u.holder_name, u.branch, u.ifsc
-	FROM `withdrawals` w
-  JOIN `users` u ON w.user_id = u.id
-  WHERE w.status = 0";  // Filtering only records where status = 0
-
+// Modified condition to include both 'recharge' and 'recharge_orders'
+$condition = "type IN ('recharge', 'recharge_orders')"; 
+$sql_query = "SELECT  t.id, u.name, u.mobile,t.ads, t.amount, t.type, t.datetime FROM `transactions` t INNER JOIN `users` u ON t.user_id = u.id WHERE $condition";
 $db->sql($sql_query);
 $developer_records = $db->getResult();
 
-// Generate the filename for the CSV
-$filename = "withdrawals_status_unpaid" . date('Ymd') . ".csv";			
+// Generate the filename
+$filename = "transactions_" . date('Ymd') . ".csv";			
 
 // Send headers to trigger the file download as CSV
 header("Content-Type: text/csv");

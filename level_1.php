@@ -82,7 +82,6 @@ curl_close($curl);
     <?php include_once('sidebar.php'); ?>
         <div class="col py-3">
             <div class="level1-container" id="level1">
-                <h2>Level 1 - 10% Income</h2>
                 <table class="table table-bordered">
                     <thead>
                         <tr>
@@ -90,8 +89,6 @@ curl_close($curl);
                             <th scope="col">Name</th>
                             <th scope="col">Mobile Number</th>
                             <th scope="col">Registered Date</th>
-                            <th scope="col">Teams</th>
-                            <th scope="col">Total Purchase</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -103,8 +100,6 @@ curl_close($curl);
                                     <td><?php echo htmlspecialchars($transaction['name']); ?></td>
                                     <td><?php echo htmlspecialchars($transaction['mobile']); ?></td>
                                     <td><?php echo htmlspecialchars($transaction['registered_datetime']); ?></td>
-                                    <td><?php echo htmlspecialchars($transaction['team_size']); ?></td>
-                                    <td><?php echo htmlspecialchars($transaction['total_assets']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>

@@ -3,13 +3,6 @@ include_once('includes/connection.php');
 session_start();
 ob_start();
 
-$refer_code = isset($_GET['refer_code']) ? htmlspecialchars($_GET['refer_code']) : ''; 
-$isReferCodeSet = !empty($refer_code);
-
-function generateDeviceID() {
-    return uniqid(); 
-}
-
 if (isset($_POST['ajax']) && $_POST['ajax'] === 'true') {
     // Handle AJAX request
     $response = array('success' => false, 'message' => 'Unknown error');
@@ -17,32 +10,18 @@ if (isset($_POST['ajax']) && $_POST['ajax'] === 'true') {
     $mobile = $_POST["mobilenum"];
     $password = $_POST["password"];
     $confirmPassword = $_POST["confirmPassword"];
-    $name = $_POST["name"];
-    $email = $_POST["email"];
-    $city = $_POST["city"];
-    $state = $_POST["state"];
-    $age = $_POST["age"];
     $otpstatus = $_POST["otpstatus"];
-    $referred_by = isset($_POST["referred_by"]) ? $_POST["referred_by"] : $refer_code; 
-    $device_id = generateDeviceID();
 
     if ($password !== $confirmPassword) {
         $response['message'] = 'Password and Confirm Password do not match';
     } else {
-        if($otpstatus == '1'){
+        if ($otpstatus == '1') {
             $data = array(
                 "mobile" => $mobile,
                 "password" => $password,
-                "name" => $name,
-                "email" => $email,
-                "city" => $city,
-                "state" => $state,
-                "age" => $age,
-                "referred_by" => $referred_by,
-                "device_id" => $device_id,
             );
 
-            $apiUrl = API_URL."register.php";
+            $apiUrl = API_URL . "forgot_password.php";
             $curl = curl_init($apiUrl);
 
             curl_setopt($curl, CURLOPT_POST, true);
@@ -57,11 +36,9 @@ if (isset($_POST['ajax']) && $_POST['ajax'] === 'true') {
                 $response['message'] = 'Error decoding API response.';
             } else {
                 if (isset($responseData["success"]) && $responseData["success"]) {
-                    $user_id = $responseData["data"][0]['id'];
-                    $_SESSION['id'] = $user_id;
-                    $_SESSION['codes'] = 0;
                     $response['success'] = true;
-                    $response['redirect'] = 'dashboard.php';
+                    $response['message'] = $responseData["message"];
+                    $response['redirect'] = 'login.php';
                 } else {
                     $response['message'] = isset($responseData["message"]) ? $responseData["message"] : "Registration failed. Please try again.";
                 }
@@ -82,7 +59,7 @@ if (isset($_POST['ajax']) && $_POST['ajax'] === 'true') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register Page</title>
+    <title>Forgot Password</title>
     <link rel="icon" type="image/x-icon" href="admin_v1/dist/img/money.jpeg">
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"> <!-- Font Awesome CSS -->
@@ -155,8 +132,7 @@ if (isset($_POST['ajax']) && $_POST['ajax'] === 'true') {
 </head>
 <body>
 <div class="heading">
-<h3>Welcome to Money Book</h3>
-        <h2>Most Trusted App in India</h2>
+<h3>Forgot Password</h3>
     </div>
     <div class="container d-flex justify-content-center align-items-center" style="min-height: 100vh;">
         <div class="custom-container">
@@ -189,17 +165,9 @@ if (isset($_POST['ajax']) && $_POST['ajax'] === 'true') {
                         </div>
                     </div>
                 </div>
+            
                 <div class="form-group">
-                    <label for="name" style= "font-weight:bold;">Full Name:</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text" style="border-right: none; background: transparent;"><i class="fas fa-user"></i></span>
-                        </div>
-                        <input type="text" class="form-control" id="name" name="name" placeholder="Name" required style="border-left: none;">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="password" style= "font-weight:bold;">Password:</label>
+                    <label for="password" style= "font-weight:bold;">New Password:</label>
                     <div class="input-group">
                         <div class="input-group-prepend">
                             <span class="input-group-text" style="border-right: none; background: transparent;"><i class="fas fa-lock"></i></span>
@@ -218,90 +186,9 @@ if (isset($_POST['ajax']) && $_POST['ajax'] === 'true') {
                     </div>
                     <span id="confirmPasswordError" class="text-danger"></span>
                 </div>
+             
                 <div class="form-group">
-                    <label for="email" style= "font-weight:bold;">Email:</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text" style="border-right: none; background: transparent;"><i class="fas fa-envelope"></i></span>
-                        </div>
-                        <input type="email" class="form-control" id="email" name="email" placeholder="Email" required style="border-left: none;">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="age" style= "font-weight:bold;">Age:</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text" style="border-right: none; background: transparent;"><i class="fas fa-calendar-alt"></i></span>
-                        </div>
-                        <input type="number" class="form-control" id="age" name="age" placeholder="Age" required style="border-left: none;">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="city" style= "font-weight:bold;">City:</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text" style="border-right: none; background: transparent;"><i class="fas fa-map-marker-alt"></i></span>
-                        </div>
-                        <input type="text" class="form-control" id="city" name="city" placeholder="City" required style="border-left: none;">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="state" style="font-weight:bold;">State:</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text" style="border-right: none; background: transparent;"><i class="fas fa-map-marker-alt"></i></span>
-                        </div>
-                        <select class="form-control" id="state" name="state" required>
-                            <option value="">Select State</option>
-                            <option value="Andhra Pradesh">Andhra Pradesh</option>
-                            <option value="Arunachal Pradesh">Arunachal Pradesh</option>
-                            <option value="Assam">Assam</option>
-                            <option value="Bihar">Bihar</option>
-                            <option value="Chhattisgarh">Chhattisgarh</option>
-                            <option value="Goa">Goa</option>
-                            <option value="Gujarat">Gujarat</option>
-                            <option value="Haryana">Haryana</option>
-                            <option value="Himachal Pradesh">Himachal Pradesh</option>
-                            <option value="Jharkhand">Jharkhand</option>
-                            <option value="Karnataka">Karnataka</option>
-                            <option value="Kerala">Kerala</option>
-                            <option value="Madhya Pradesh">Madhya Pradesh</option>
-                            <option value="Maharashtra">Maharashtra</option>
-                            <option value="Manipur">Manipur</option>
-                            <option value="Meghalaya">Meghalaya</option>
-                            <option value="Mizoram">Mizoram</option>
-                            <option value="Nagaland">Nagaland</option>
-                            <option value="Odisha">Odisha</option>
-                            <option value="Punjab">Punjab</option>
-                            <option value="Rajasthan">Rajasthan</option>
-                            <option value="Sikkim">Sikkim</option>
-                            <option value="Tamil Nadu">Tamil Nadu</option>
-                            <option value="Telangana">Telangana</option>
-                            <option value="Tripura">Tripura</option>
-                            <option value="Uttar Pradesh">Uttar Pradesh</option>
-                            <option value="Uttarakhand">Uttarakhand</option>
-                            <option value="West Bengal">West Bengal</option>
-                            <option value="Andaman and Nicobar Islands">Andaman and Nicobar Islands</option>
-                            <option value="Chandigarh">Chandigarh</option>
-                            <option value="Dadra and Nagar Haveli">Dadra and Nagar Haveli</option>
-                            <option value="Daman and Diu">Daman and Diu</option>
-                            <option value="Lakshadweep">Lakshadweep</option>
-                            <option value="Delhi">Delhi</option>
-                            <option value="Puducherry">Puducherry</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="referred_by" style= "font-weight:bold;">Referral code:</label>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text" style="border-right: none; background: transparent;"><i class="fas fa-book"></i></span>
-                        </div>
-                        <input type="text" class="form-control" id="referred_by" name="referred_by" required value="<?php echo htmlspecialchars($refer_code); ?>" style="border-left: none;" <?php if ($isReferCodeSet) echo 'readonly'; ?>>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <button type="submit" class="btn btn-primary btn-custom" name="btnSignup" style="background-color:#3eb3a8; color:white; font-weight:bold;">Register</button>
+                    <button type="submit" class="btn btn-primary btn-custom" name="btnChange" style="background-color:#3eb3a8; color:white; font-weight:bold;">Change Password</button>
                 </div>
                 <div class="text-center mt-3">
                     <p><a href="login.php">Back to Login</a></p>
@@ -327,8 +214,9 @@ $(document).ready(function() {
                     authkey: "64045a300411033f",
                     mobile: mobile,
                     country_code: "91",
-                    sid: "14324",
-                    otp: otp
+                    sid: "14031",
+                    otp: otp,
+                    company: "E-Books"
                 },
                 success: function(response) {
                     crctotp = otp;
@@ -375,7 +263,8 @@ $(document).ready(function() {
             success: function(response) {
                 var jsonResponse = JSON.parse(response);
                 if (jsonResponse.success) {
-                    window.location.href = jsonResponse.redirect;
+                    alert(jsonResponse.message);  // Show the success message
+                    window.location.href = jsonResponse.redirect;  
                 } else {
                     alert(jsonResponse.message);
                 }
@@ -387,6 +276,7 @@ $(document).ready(function() {
         });
     });
 });
+
 </script>
 <script>window.$zoho=window.$zoho || {};$zoho.salesiq=$zoho.salesiq||{ready:function(){}}</script><script id="zsiqscript" src="https://salesiq.zohopublic.in/widget?wc=siq7f332814434ba123f5efbf2d82a7e47947952e33ecc6bf4b78f9f89edf3ad350" defer></script>
 </body>

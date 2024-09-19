@@ -159,14 +159,19 @@ curl_close($curl);
                     <i class="fs-4 bi-speedometer2"></i> <span class="ms-1">Dashboard</span>
                 </a>
             </li>
-            <li>
+            <!-- <li>
                 <a href="recharge.php" class="nav-link px-0 align-middle text-white">
                     <i class="fs-4 bi-cash"></i> <span class="ms-1">Recharge</span>
                 </a>
+            </li> -->
+            <li>
+                <a href="ins_recharge.php" class="nav-link px-0 align-middle text-white">
+                    <i class="fs-4 bi-cash"></i> <span class="ms-1">Instant Recharge</span>
+                </a>
             </li>
             <li>
-                <a href="demo_recharge.php" class="nav-link px-0 align-middle text-white">
-                    <i class="fs-4 bi-cash"></i> <span class="ms-1">Demo Recharge</span>
+                <a href="print_books.php" class="nav-link px-0 align-middle text-white">
+                    <i class="fs-4 bi-book"></i> <span class="ms-1">Print Books</span>
                 </a>
             </li>
             <li>
@@ -180,20 +185,20 @@ curl_close($curl);
                 </a>
             </li>
             <li>
-                <a href="#submenu2" data-bs-toggle="collapse" class="nav-link px-0 align-middle text-white">
+                <a href="level_1.php" class="nav-link px-0 align-middle text-white">
                     <i class="fs-4 bi-grid"></i> <span class="ms-1">My Referrals</span>
                 </a>
-                <ul class="collapse nav flex-column ms-1" id="submenu2">
-                    <li class="w-100">
-                        <a href="level_1.php" class="nav-link px-0 text-white"> <span>Level</span> 1</a>
-                    </li>
-                    <li>
-                        <a href="level_2.php" class="nav-link px-0 text-white"> <span>Level</span> 2</a>
-                    </li>
-                    <li>
-                        <a href="level_3.php" class="nav-link px-0 text-white"> <span>Level</span> 3</a>
-                    </li>
-                </ul>
+
+            </li>
+            <li>
+                <a href="leader_plan.php" class="nav-link px-0 align-middle text-white">
+                    <i class="fs-4 bi-grid"></i> <span class="ms-1">Leader Plans</span>
+                </a>
+            </li>
+            <li>
+                <a href="coupon.php" class="nav-link px-0 align-middle text-white">
+                    <i class="fs-4 bi-cash-stack"></i> <span class="ms-1">Coupon</span>
+                </a>
             </li>
             <li>
                 <a href="withdrawals.php" class="nav-link px-0 align-middle text-white">
@@ -225,11 +230,11 @@ curl_close($curl);
                     <i class="fs-4 bi-headset"></i> <span class="ms-1">Customer Support</span>
                 </a>
             </li>
-            <li>
+            <!-- <li>
                 <a href="company_details.php" class="nav-link px-0 align-middle text-white">
                     <i class="fs-4 bi-building"></i> <span class="ms-1">Company Details</span>
                 </a>
-            </li>
+            </li> -->
         </ul>
 
         <hr>
