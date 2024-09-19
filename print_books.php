@@ -59,37 +59,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax'])) {
 
     // Validate each field against all records
     $matchFound = false;
-    $errors = [];
-    
     foreach ($books as $book) {
-        $customerMatch = strcasecmp($customerName, trim($book['customer_name'])) === 0;
-        $bookMatch = strcasecmp($bookName, trim($book['book_name'])) === 0;
-        $authorMatch = strcasecmp($authorName, trim($book['author_name'])) === 0;
-        $bookIdMatch = strcasecmp($bookId, trim($book['book_id'])) === 0;
-    
-        if ($customerMatch && $bookMatch && $authorMatch && $bookIdMatch) {
+        if (strcasecmp($customerName, trim($book['customer_name'])) === 0 &&
+            strcasecmp($bookName, trim($book['book_name'])) === 0 &&
+            strcasecmp($authorName, trim($book['author_name'])) === 0 &&
+            strcasecmp($bookId, trim($book['book_id'])) === 0) {
+            
             $matchFound = true;
             break; // Stop checking after a match is found
         }
-    
-        // Provide error messages for individual mismatches
-        if (!$customerMatch) {
-            $errors['customer_name'] = "Customer Name is incorrect.";
-        }
-        if (!$bookMatch) {
-            $errors['book_name'] = "Book Name is incorrect.";
-        }
-        if (!$authorMatch) {
-            $errors['author_name'] = "Author Name is incorrect.";
-        }
-        if (!$bookIdMatch) {
-            $errors['book_id'] = "Book ID is incorrect.";
-        }
     }
-    
-    // If no match was found and no specific errors were set, we can add a generic error.
-    if (!$matchFound && empty($errors)) {
-        $errors['general'] = "No matching book record found.";
+
+    if (!$matchFound) {
+        $errors['customer_name'] = "Customer Name is incorrect.";
+        $errors['book_name'] = "Book Name is incorrect.";
+        $errors['author_name'] = "Author Name is incorrect.";
+        $errors['book_id'] = "Book ID is incorrect.";
     }
 
     if (empty($errors)) {
