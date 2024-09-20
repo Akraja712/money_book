@@ -55,63 +55,76 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax'])) {
     $authorName = trim($conn->real_escape_string($_POST['author_name']));
     $bookId = trim($conn->real_escape_string($_POST['book_id']));
 
-    $errors = [];
+   // Validate each field against all records
+// Validate each field against all records
+$errors = [];
+$matchFound = false;
 
-    // Validate each field against all records
-    $matchFound = false;
+foreach ($books as $book) {
+    // Check if all fields match
+    if (strcasecmp($customerName, trim($book['customer_name'])) === 0 && 
+        strcasecmp($bookName, trim($book['book_name'])) === 0 && 
+        strcasecmp($authorName, trim($book['author_name'])) === 0 && 
+        strcasecmp($bookId, trim($book['book_id'])) === 0) {
+        $matchFound = true; // A full match is found, no need for errors
+        break;
+    }
+}
+
+// If no match is found, compare each field individually to give specific error messages
+if (!$matchFound) {
+    // Loop through the records again to determine which fields are incorrect
     foreach ($books as $book) {
-        if (strcasecmp($customerName, trim($book['customer_name'])) === 0 &&
-            strcasecmp($bookName, trim($book['book_name'])) === 0 &&
-            strcasecmp($authorName, trim($book['author_name'])) === 0 &&
-            strcasecmp($bookId, trim($book['book_id'])) === 0) {
-            
-            $matchFound = true;
-            break; // Stop checking after a match is found
+        if (strcasecmp($customerName, trim($book['customer_name']))) {
+            $errors['customer_name'] = "Customer Name is incorrect.";
+        }
+        if (strcasecmp($bookName, trim($book['book_name']))) {
+            $errors['book_name'] = "Book Name is incorrect.";
+        }
+        if (strcasecmp($authorName, trim($book['author_name']))) {
+            $errors['author_name'] = "Author Name is incorrect.";
+        }
+        if (strcasecmp($bookId, trim($book['book_id']))) {
+            $errors['book_id'] = "Book ID is incorrect.";
         }
     }
+}
 
-    if (!$matchFound) {
-        $errors['customer_name'] = "Customer Name is incorrect.";
-        $errors['book_name'] = "Book Name is incorrect.";
-        $errors['author_name'] = "Author Name is incorrect.";
-        $errors['book_id'] = "Book ID is incorrect.";
-    }
+// If errors exist, return the specific error messages for incorrect fields
+if (!empty($errors)) {
+    echo json_encode(['status' => 'error', 'errors' => $errors]);
+} else {
+    // Proceed with the transaction if all fields are correct
+    $conn->begin_transaction();
 
-    if (empty($errors)) {
-        // Begin transaction
-        $conn->begin_transaction();
-
-        try {
-            // Update user fields
-            $sql = "UPDATE users SET print_wallet = print_wallet - 1, balance = balance + 1 WHERE id = $user_id";
-            if (!$conn->query($sql)) {
-                throw new Exception('Failed to update user fields: ' . $conn->error);
-            }
-
-            // Insert transaction
-            $sql = "INSERT INTO transactions (user_id, type, amount, datetime) VALUES ($user_id, 'print_books', 1, NOW())";
-            if (!$conn->query($sql)) {
-                throw new Exception('Failed to insert transaction: ' . $conn->error);
-            }
-
-            // Commit transaction
-            $conn->commit();
-
-            // Success response
-            echo json_encode(['status' => 'success', 'message' => 'Your book printed successfully!']);
-        } catch (Exception $e) {
-            // Rollback transaction
-            $conn->rollback();
-            echo json_encode(['status' => 'error', 'message' => 'An error occurred: ' . $e->getMessage()]);
+    try {
+        // Update user fields
+        $sql = "UPDATE users SET print_wallet = print_wallet - 1, balance = balance + 1 WHERE id = $user_id";
+        if (!$conn->query($sql)) {
+            throw new Exception('Failed to update user fields: ' . $conn->error);
         }
-    } else {
-        // Return error response
-        echo json_encode(['status' => 'error', 'errors' => $errors]);
-    }
 
-    // Close the connection
-    $conn->close();
-    exit(); // Prevent further processing of the PHP script
+        // Insert transaction
+        $sql = "INSERT INTO transactions (user_id, type, amount, datetime) VALUES ($user_id, 'print_books', 1, NOW())";
+        if (!$conn->query($sql)) {
+            throw new Exception('Failed to insert transaction: ' . $conn->error);
+        }
+
+        // Commit transaction
+        $conn->commit();
+
+        // Success response with page reload trigger
+        echo json_encode(['status' => 'success', 'message' => 'Your book printed successfully!', 'reload' => true]);
+    } catch (Exception $e) {
+        // Rollback transaction
+        $conn->rollback();
+        echo json_encode(['status' => 'error', 'message' => 'An error occurred: ' . $e->getMessage()]);
+    }
+}
+
+$conn->close();
+exit();
+
 }
 
 // Initialize user details
@@ -211,43 +224,51 @@ curl_close($curl);
             e.preventDefault(); // Prevent the form from submitting normally
 
             $.ajax({
-                type: "POST",
-                url: "", // Current page
-                data: $(this).serialize() + "&ajax=1",
-                dataType: "json",
-                success: function (response) {
-                    var modalHeader = $("#modalHeader");
-                    var modalTitle = $("#modalTitle");
-                    var modalMessage = $("#modalMessage");
+                    type: "POST",
+                    url: "", // Current page
+                    data: $(this).serialize() + "&ajax=1",
+                    dataType: "json",
+                    success: function (response) {
+                        var modalHeader = $("#modalHeader");
+                        var modalTitle = $("#modalTitle");
+                        var modalMessage = $("#modalMessage");
 
-                    if (response.status === 'success') {
-                        modalTitle.text("Success");
-                        modalHeader.removeClass('bg-danger').addClass('bg-success');
-                        modalMessage.html(response.message);
-                        $("form")[0].reset();
-                    } else {
-                        modalTitle.text("Error");
-                        modalHeader.removeClass('bg-success').addClass('bg-danger');
-                        var errorMessage = '';
-                        if (response.errors) {
-                            $.each(response.errors, function (key, value) {
-                                errorMessage += value + '<br>';
-                            });
+                        if (response.status === 'success') {
+                            modalTitle.text("Success");
+                            modalHeader.removeClass('bg-danger').addClass('bg-success');
+                            modalMessage.html(response.message);
+                            $("form")[0].reset();
+
+                            // Reload page on success after 2 seconds
+                            if (response.reload) {
+                                setTimeout(function () {
+                                    location.reload();
+                                }, 2000);
+                            }
                         } else {
-                            errorMessage = "An error occurred. Please try again.";
+                            modalTitle.text("Error");
+                            modalHeader.removeClass('bg-success').addClass('bg-danger');
+                            var errorMessage = '';
+                            if (response.errors) {
+                                $.each(response.errors, function (key, value) {
+                                    errorMessage += value + '<br>';
+                                });
+                            } else {
+                                errorMessage = "An error occurred. Please try again.";
+                            }
+                            modalMessage.html(errorMessage);
                         }
-                        modalMessage.html(errorMessage);
-                    }
 
-                    $("#responseModal").modal('show');
-                },
-                error: function () {
-                    $("#modalTitle").text("Error");
-                    $("#modalMessage").text("Something went wrong. Please try again.");
-                    $("#modalHeader").removeClass('bg-success').addClass('bg-danger');
-                    $("#responseModal").modal('show');
-                }
-            });
+                        $("#responseModal").modal('show');
+                    },
+                    error: function () {
+                        $("#modalTitle").text("Error");
+                        $("#modalMessage").text("Something went wrong. Please try again.");
+                        $("#modalHeader").removeClass('bg-success').addClass('bg-danger');
+                        $("#responseModal").modal('show');
+                    }
+                });
+
         });
     });
     </script>
