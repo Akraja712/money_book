@@ -1,17 +1,7 @@
 <?php
-include_once('includes/connection.php');
-session_start();
 
-// Check if the user is logged in
-$user_id = isset($_SESSION['id']) ? $_SESSION['id'] : null;
-
-if (!$user_id) {
-    header("Location: index.php");
-    exit();
-}
 
 $data = array(
-    "user_id" => $user_id,
     "type" => "member",
 );
 

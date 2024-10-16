@@ -11,12 +11,13 @@ if (!isset($_SESSION['id'])) {
 }
 
 $user_id = $_SESSION['id']; // Get user_id from session
-
+$datetime = date('Y-m-d H:i:s');
 $servername = "localhost";
 $username = "u743445510_demo_money";
 $password = "Demomoney@2024";  
 $dbname = "u743445510_demo_money"; 
 
+date_default_timezone_set('Asia/Kolkata');
 // Create connection
 $conn = new mysqli($servername, $username, $password, $dbname);
 
@@ -24,6 +25,21 @@ $conn = new mysqli($servername, $username, $password, $dbname);
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
+
+if (!isset($_SESSION['print_count'])) {
+    $_SESSION['print_count'] = 0; // Start with 0 if not set
+}
+
+$printCount = min($_SESSION['print_count'], 10); // Cap at 10
+
+// Handle updating the print count via AJAX
+if (isset($_POST['update_print_count'])) {
+    $newCount = intval($_POST['new_count']);
+    $_SESSION['print_count'] = min($newCount, 10); // Update the session value, capped at 10
+    echo json_encode(['status' => 'success', 'message' => 'Count updated']);
+    exit();
+}
+
 
 // Fetch all records from the books table
 $sql = "SELECT customer_name, book_name, author_name, book_id FROM books";
@@ -49,82 +65,79 @@ $randomAuthorName = trim($randomBook['author_name']);
 $randomBookId = trim($randomBook['book_id']);
 
 // Check if it's an AJAX request
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax'])) {
+if (isset($_POST['print_form'])) {
     $customerName = trim($conn->real_escape_string($_POST['customer_name']));
     $bookName = trim($conn->real_escape_string($_POST['book_name']));
     $authorName = trim($conn->real_escape_string($_POST['author_name']));
     $bookId = trim($conn->real_escape_string($_POST['book_id']));
 
-   // Validate each field against all records
-// Validate each field against all records
-$errors = [];
-$matchFound = false;
+    $errors = [];
 
-foreach ($books as $book) {
-    // Check if all fields match
-    if (strcasecmp($customerName, trim($book['customer_name'])) === 0 && 
-        strcasecmp($bookName, trim($book['book_name'])) === 0 && 
-        strcasecmp($authorName, trim($book['author_name'])) === 0 && 
-        strcasecmp($bookId, trim($book['book_id'])) === 0) {
-        $matchFound = true; // A full match is found, no need for errors
-        break;
-    }
-}
-
-// If no match is found, compare each field individually to give specific error messages
-if (!$matchFound) {
-    // Loop through the records again to determine which fields are incorrect
+    // Validate each field against all records
+    $matchFound = false;
     foreach ($books as $book) {
-        if (strcasecmp($customerName, trim($book['customer_name']))) {
-            $errors['customer_name'] = "Customer Name is incorrect.";
-        }
-        if (strcasecmp($bookName, trim($book['book_name']))) {
-            $errors['book_name'] = "Book Name is incorrect.";
-        }
-        if (strcasecmp($authorName, trim($book['author_name']))) {
-            $errors['author_name'] = "Author Name is incorrect.";
-        }
-        if (strcasecmp($bookId, trim($book['book_id']))) {
-            $errors['book_id'] = "Book ID is incorrect.";
+        if (strcasecmp($customerName, trim($book['customer_name'])) === 0 &&
+            strcasecmp($bookName, trim($book['book_name'])) === 0 &&
+            strcasecmp($authorName, trim($book['author_name'])) === 0 &&
+            strcasecmp($bookId, trim($book['book_id'])) === 0) {
+            
+            $matchFound = true;
+            break; // Stop checking after a match is found
         }
     }
-}
 
-// If errors exist, return the specific error messages for incorrect fields
-if (!empty($errors)) {
-    echo json_encode(['status' => 'error', 'errors' => $errors]);
-} else {
-    // Proceed with the transaction if all fields are correct
-    $conn->begin_transaction();
+    if (!$matchFound) {
+        $error['add_balance'] = "<section class='content-header'>
+                                                     <span class='label label-danger'>Incorrect</span> </section>";
 
-    try {
-        // Update user fields
-        $sql = "UPDATE users SET print_wallet = print_wallet - 1, balance = balance + 1 WHERE id = $user_id";
-        if (!$conn->query($sql)) {
-            throw new Exception('Failed to update user fields: ' . $conn->error);
-        }
-
-        // Insert transaction
-        $sql = "INSERT INTO transactions (user_id, type, amount, datetime) VALUES ($user_id, 'print_books', 1, NOW())";
-        if (!$conn->query($sql)) {
-            throw new Exception('Failed to insert transaction: ' . $conn->error);
-        }
-
-        // Commit transaction
-        $conn->commit();
-
-        // Success response with page reload trigger
-        echo json_encode(['status' => 'success', 'message' => 'Your book printed successfully!', 'reload' => true]);
-    } catch (Exception $e) {
-        // Rollback transaction
-        $conn->rollback();
-        echo json_encode(['status' => 'error', 'message' => 'An error occurred: ' . $e->getMessage()]);
     }
-}
 
-$conn->close();
-exit();
+    $error = []; // Initialize the error array early on
+    shuffle($books);
+    $selectedBooks = array_slice($books, 0, 10); // Get 10 random books
+  
+    if (empty($errors)) {
+        $print_cost = $_SESSION['print_cost'];
 
+        if ($print_cost > 0) {
+            $conn->autocommit(FALSE);
+
+            try {
+                // Update user balance
+                $sql = "UPDATE users SET balance = balance + $print_cost WHERE id = $user_id";
+                if (!$conn->query($sql)) {
+                    throw new Exception('Failed to update balance');
+                }
+        
+                $sql = "INSERT INTO transactions (user_id, type, amount, datetime) VALUES ($user_id, 'print_books', $print_cost, '$datetime')";
+                if (!$conn->query($sql)) {
+                    throw new Exception('Failed to insert transaction');
+                }
+        
+                // Increment and update session count
+                $newCount = $_SESSION['print_count'] + 1;
+                $_SESSION['print_count'] = $newCount;
+        
+                // Reset count after reaching max
+                if ($_SESSION['print_count'] >= 10) {
+                    $_SESSION['print_count'] = 0; // Reset count to 0 after reaching 10
+                }
+                $conn->commit();
+                echo json_encode(['status' => 'success', 'message' => 'Your book printed successfully!']);
+            } catch (Exception $e) {
+                $conn->rollback(); // Rollback transaction if any query fails
+                echo json_encode(['status' => 'failed', 'message' => $e->getMessage()]);
+            }
+        } else {
+            echo json_encode(['status' => 'failed', 'message' => 'Please activate print jobs.']);
+        }
+    } else {
+        echo json_encode(['status' => 'failed', 'errors' => $errors]);
+    }
+
+    // Close connection and stop further processing
+    $conn->close();
+    exit();
 }
 
 // Initialize user details
@@ -164,8 +177,10 @@ if ($response === false) {
         // Display transaction details
         $userdetails = $responseData["data"];
         if (!empty($userdetails)) {
-            $print_wallet = $userdetails[0]["print_wallet"];
+
             $balance = $userdetails[0]["balance"];
+            $print_cost = $userdetails[0]["print_cost"];
+            $_SESSION['print_cost'] = $print_cost;
         } else {
             echo "<script>alert('" . $responseData["message"] . "')</script>";
         }
@@ -215,66 +230,79 @@ curl_close($curl);
             -webkit-user-select: none; /* Disable for Safari */
             -ms-user-select: none; /* Disable for IE/Edge */
         }
+        .otp-input {
+        width: 50px;
+        text-align: center;
+        font-size: 1rem;
+    }
     </style>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-    $(document).ready(function () {
-        $("form").on("submit", function (e) {
-            e.preventDefault(); // Prevent the form from submitting normally
+$(document).ready(function () {
+    $("form[name='print_form']").on("submit", function (e) {
+        e.preventDefault(); // Prevent the form from submitting normally
 
-            $.ajax({
-                    type: "POST",
-                    url: "", // Current page
-                    data: $(this).serialize() + "&ajax=1",
-                    dataType: "json",
-                    success: function (response) {
-                        var modalHeader = $("#modalHeader");
-                        var modalTitle = $("#modalTitle");
-                        var modalMessage = $("#modalMessage");
+        $.ajax({
+            type: "POST",
+            url: "", // Current page
+            data: $(this).serialize() + "&print_form=1", // Include the print_form parameter
+            dataType: "json",
+            success: function (response) {
+                var modalHeader = $("#modalHeader");
+                var modalTitle = $("#modalTitle");
+                var modalMessage = $("#modalMessage");
 
-                        if (response.status === 'success') {
-                            modalTitle.text("Success");
-                            modalHeader.removeClass('bg-danger').addClass('bg-success');
-                            modalMessage.html(response.message);
-                            $("form")[0].reset();
+                if (response.status === 'success') {
+                    modalTitle.text("Success");
+                    modalHeader.removeClass('bg-danger').addClass('bg-success');
+                    modalMessage.html(response.message); // Show the success message
+                    $("form")[0].reset(); // Reset the form
 
-                            // Reload page on success after 2 seconds
-                            if (response.reload) {
-                                setTimeout(function () {
-                                    location.reload();
-                                }, 2000);
-                            }
-                        } else {
-                            modalTitle.text("Error");
-                            modalHeader.removeClass('bg-success').addClass('bg-danger');
-                            var errorMessage = '';
-                            if (response.errors) {
-                                $.each(response.errors, function (key, value) {
-                                    errorMessage += value + '<br>';
-                                });
-                            } else {
-                                errorMessage = "An error occurred. Please try again.";
-                            }
-                            modalMessage.html(errorMessage);
-                        }
+                    // Reset the print count from the response
+                    let printCount = response.new_count; // Get the new count from the response
+                    $("#printCount").text(printCount + "/10"); // Update display
 
-                        $("#responseModal").modal('show');
-                    },
-                    error: function () {
-                        $("#modalTitle").text("Error");
-                        $("#modalMessage").text("Something went wrong. Please try again.");
-                        $("#modalHeader").removeClass('bg-success').addClass('bg-danger');
-                        $("#responseModal").modal('show');
+                    // Refresh the page after a short delay
+                    setTimeout(function () {
+                        location.reload(); // Reload the entire page
+                    }, 2000); // 2000 milliseconds = 2 seconds delay
+
+                } else {
+                    modalTitle.text("Error");
+                    modalHeader.removeClass('bg-success').addClass('bg-danger');
+                    var errorMessage = '';
+                    if (response.errors) {
+                        $.each(response.errors, function (key, value) {
+                            errorMessage += value + '<br>';
+                        });
+                    } else {
+                        errorMessage = "Please activate print jobs.";
                     }
-                });
+                    modalMessage.html(errorMessage); // Show the error message
+                }
 
+                $("#responseModal").modal('show'); // Show the modal
+            },
+            error: function () {
+                $("#modalTitle").text("Error");
+                $("#modalMessage").text("Please activate print jobs.");
+                $("#modalHeader").removeClass('bg-success').addClass('bg-danger');
+                $("#responseModal").modal('show'); // Show the modal
+            }
         });
     });
-    </script>
+});
+
+</script>
+<script>
+    
+</script>
 </head>
 <body>
-
+<section class="content-header">
+    <?php echo isset($error['add_balance']) ? $error['add_balance'] : ''; ?>
+</section>
 <div class="container-fluid">
     <div class="row flex-nowrap">
         <?php include_once('sidebar.php'); ?>
@@ -283,7 +311,7 @@ curl_close($curl);
                 <div class="row">
                     <div class="col-md-4">
                         <div class="info-box" style="background-color: #BF360C; color: white;">
-                            <h4>Print Wallet</h4>  <p>₹<?php echo $print_wallet; ?></p>
+                            <h4>Print Cost</h4>  <p>₹<?php echo $print_cost; ?></p>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -298,7 +326,7 @@ curl_close($curl);
                 <!-- Modern Card Layout for Balance and Print Wallet -->
                 <!-- Book Print Form -->
                 <div class="form-container mt-4">
-                    <form method="post">
+                    <form name="print_form" method="post" enctype="multipart/form-data">
                         <div class="mb-3">
                             <p class="no-copy"><?php echo htmlspecialchars($randomCustomerName); ?></p>
                             <input type="text" id="customer_name" name="customer_name" placeholder="Customer Name"
@@ -312,17 +340,27 @@ curl_close($curl);
                         <div class="mb-3">
                             <p class="no-copy"><?php echo htmlspecialchars($randomAuthorName); ?></p>
                             <input type="text" id="author_name" name="author_name" placeholder="Author Name"
-                                   class="form-control" required />
+                                   class="form-control"  required />
                         </div>
                         <div class="mb-3">
                             <p class="no-copy"><?php echo htmlspecialchars($randomBookId); ?></p>
-                            <input type="text" id="book_id" name="book_id" placeholder="Book ID"
-                                   class="form-control" required />
+                            
+                            <div class="otp-container" style="display: flex; gap: 10px;">
+                                <!-- Creating 5 separate input boxes for OTP digits -->
+                                <input type="text" id="book_id" name="book_id" maxlength="1" class="form-control otp-input" required />
+                                <input type="text" id="book_id" name="book_id" maxlength="1" class="form-control otp-input" required />
+                                <input type="text" id="book_id" name="book_id" maxlength="1" class="form-control otp-input" required />
+                                <input type="text" id="book_id" name="book_id" maxlength="1" class="form-control otp-input" required />
+                                <input type="text" id="book_id" name="book_id" maxlength="1" class="form-control otp-input" required />
+                            </div>
                         </div>
 
-                        <button type="submit" name="btnUpdate" style="background-color:#3eb3a8; color:white;" class="btn">Print Book</button>
-                    </form>
-                </div>
+                        <div class="mb-3">
+                                <button type="button" id="nextButton" class="btn btn-primary">Next</button>
+                                <span id="printCount">1/10</span>
+                            </div>
+                            <button type="submit" id="printButton" name="print_form" style="background-color:#3eb3a8; color:white;" class="btn disabled" disabled>Print Book</button>
+                        </form>
 
                 <!-- Bootstrap Modal -->
                 <div class="modal fade" id="responseModal" tabindex="-1" aria-labelledby="responseModalLabel" aria-hidden="true">
@@ -350,6 +388,51 @@ curl_close($curl);
 
 <!-- Bootstrap JavaScript Bundle with Popper -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap JavaScript Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 
+    <script>
+ $(document).ready(function() {
+    let printCount = <?php echo $printCount; ?>; // Get print count from PHP session
+    const maxPrintCount = 10;
+
+    // Update the print count display when the page loads
+    $("#printCount").text(printCount + "/" + maxPrintCount); // Initially display 0/10
+
+    // If print count is already 10, enable the print button
+    if (printCount === maxPrintCount) {
+        $("#printButton").removeClass('disabled').prop('disabled', false); // Enable Print Book button
+    }
+
+    // Handle "Next" button click
+    $("#nextButton").click(function() {
+        if (printCount < maxPrintCount) {
+            printCount++; // Increment print count
+            $("#printCount").text(printCount + "/" + maxPrintCount); // Update display text
+
+            // If printCount reaches 10, enable the print button
+            if (printCount === maxPrintCount) {
+                $("#printButton").removeClass('disabled').prop('disabled', false); // Enable Print Book button
+            }
+
+            // Send an AJAX request to update the print count in the session
+            $.ajax({
+                type: "POST",
+                url: "", // Current page
+                data: { update_print_count: 1, new_count: printCount }, // Data to send
+                success: function(response) {
+                    console.log("Count updated successfully");
+                    // Reload the page to reflect the updated count
+                    location.reload(); 
+                },
+                error: function() {
+                    console.error("Error updating count");
+                }
+            });
+        }
+    });
+});
+
+    </script>
 </body>
 </html>
