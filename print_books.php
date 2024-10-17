@@ -285,19 +285,46 @@ $(document).ready(function() {
         }
     });
 
-    // Function to validate form fields
-    function validateForm() {
-        let isValid = true;
-        $("input[required]").each(function() {
-            if ($(this).val().trim() === "") {
-                isValid = false; // Set to false if any required field is empty
-                $(this).addClass("is-invalid"); // Add Bootstrap invalid class
+      // Function to validate form fields
+function validateForm() {
+    let isValid = true;
+    let errorMessages = new Set(); // Use a Set to hold unique error messages
+
+    // Validate required fields
+    $("input[required]").each(function() {
+        const fieldValue = $(this).val().trim(); // Get trimmed value of the input
+        const fieldName = $(this).attr("name"); // Get the name of the field
+
+        if (fieldValue === "") {
+            isValid = false; // Set to false if any required field is empty
+
+            // Check if the fieldName is undefined or empty
+            if (!fieldName) {
+                errorMessages.add("Book ID is required."); // Add unique message for undefined name
             } else {
-                $(this).removeClass("is-invalid"); // Remove invalid class if filled
+                errorMessages.add(fieldName + " is required."); // Add generic message for other fields
             }
-        });
-        return isValid;
+        }
+    });
+
+    // If there are errors, show them in a modal
+    if (!isValid) {
+        showErrorModal(Array.from(errorMessages)); // Convert Set to Array and show errors
     }
+
+    return isValid;
+}
+
+// Function to show errors in a modal
+function showErrorModal(errors) {
+    $("#modalTitle").text("Validation Errors");
+    $("#modalHeader").removeClass('bg-success').addClass('bg-danger');
+
+    // Format error messages into HTML
+    const errorHtml = errors.join("<br>");
+    $("#modalMessage").html(errorHtml); // Display the error messages in the modal
+    $("#responseModal").modal('show'); // Show the modal
+}
 
     // New function to validate all fields (customer_name, book_name, author_name, book_id)
     function validateAllFields() {
