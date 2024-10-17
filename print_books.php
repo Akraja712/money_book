@@ -9,15 +9,19 @@ if (!isset($_SESSION['id'])) {
     header("Location: index.php");
     exit();
 }
+// Set timezone to Asia/Kolkata
+date_default_timezone_set('Asia/Kolkata');
 
-$user_id = $_SESSION['id']; // Get user_id from session
+// Get current date and time
 $datetime = date('Y-m-d H:i:s');
+$user_id = $_SESSION['id']; // Get user_id from session
 $servername = "localhost";
 $username = "u743445510_demo_money";
 $password = "Demomoney@2024";  
 $dbname = "u743445510_demo_money"; 
 
-date_default_timezone_set('Asia/Kolkata');
+
+
 // Create connection
 $conn = new mysqli($servername, $username, $password, $dbname);
 
@@ -26,20 +30,20 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
+// Initialize print count if not set
 if (!isset($_SESSION['print_count'])) {
-    $_SESSION['print_count'] = 0; // Start with 0 if not set
+    $_SESSION['print_count'] = 0;
 }
 
-$printCount = min($_SESSION['print_count'], 50); // Cap at 10
+$printCount = min($_SESSION['print_count'], 50); // Cap at 50
 
 // Handle updating the print count via AJAX
 if (isset($_POST['update_print_count'])) {
     $newCount = intval($_POST['new_count']);
-    $_SESSION['print_count'] = min($newCount, 50); // Update the session value, capped at 10
+    $_SESSION['print_count'] = min($newCount, 50); // Update the session value, capped at 50
     echo json_encode(['status' => 'success', 'message' => 'Count updated']);
     exit();
 }
-
 
 // Fetch all records from the books table
 $sql = "SELECT customer_name, book_name, author_name, book_id FROM books";
@@ -55,7 +59,10 @@ if ($result->num_rows > 0) {
     exit();
 }
 
-// Select a random record for display
+// Clear old random values
+unset($_SESSION['random_customer_name'], $_SESSION['random_book_name'], $_SESSION['random_author_name'], $_SESSION['random_book_id']);
+
+// Select a new random record for display
 $randomIndex = array_rand($books);
 $randomBook = $books[$randomIndex];
 
@@ -64,52 +71,30 @@ $randomBookName = trim($randomBook['book_name']);
 $randomAuthorName = trim($randomBook['author_name']);
 $randomBookId = trim($randomBook['book_id']);
 
-// Check if it's an AJAX request
-if (isset($_POST['print_form'])) {
-    $customerName = trim($conn->real_escape_string($_POST['customer_name']));
-    $bookName = trim($conn->real_escape_string($_POST['book_name']));
-    $authorName = trim($conn->real_escape_string($_POST['author_name']));
-    $bookId = trim($conn->real_escape_string($_POST['book_id']));
+// Store the random book information in the session
+$_SESSION['random_customer_name'] = $randomCustomerName;
+$_SESSION['random_book_name'] = $randomBookName;
+$_SESSION['random_author_name'] = $randomAuthorName;
+$_SESSION['random_book_id'] = $randomBookId;
 
-    $errors = [];
 
-    // Validate each field against all records
-    $matchFound = false;
-    foreach ($books as $book) {
-        if (strcasecmp($customerName, trim($book['customer_name'])) === 0 &&
-            strcasecmp($bookName, trim($book['book_name'])) === 0 &&
-            strcasecmp($authorName, trim($book['author_name'])) === 0 &&
-            strcasecmp($bookId, trim($book['book_id'])) === 0) {
-            
-            $matchFound = true;
-            break; // Stop checking after a match is found
-        }
-    }
-
-    if (!$matchFound) {
-        $error['add_balance'] = "<section class='content-header'>
-                                                     <span class='label label-danger'>Incorrect</span> </section>";
-
-    }
-
-    $error = []; // Initialize the error array early on
-    shuffle($books);
-    $selectedBooks = array_slice($books, 0, 50); // Get 10 random books
-  
+ if (isset($_POST['printss'])) {
     if (empty($errors)) {
         $print_cost = $_SESSION['print_cost'];
 
-        if ($print_cost > 0) {
-            $conn->autocommit(FALSE);
+    if ($print_cost > 0) {
+        $conn->autocommit(FALSE);
 
-            try {
+        try {
+        // Calculate the total cost to be added (50 times the print cost)
+               $total_cost = 50 * $print_cost;
                 // Update user balance
-                $sql = "UPDATE users SET balance = balance + $print_cost WHERE id = $user_id";
+                $sql = "UPDATE users SET balance = balance + $total_cost WHERE id = $user_id";
                 if (!$conn->query($sql)) {
                     throw new Exception('Failed to update balance');
                 }
         
-                $sql = "INSERT INTO transactions (user_id, type, amount, datetime) VALUES ($user_id, 'print_books', $print_cost, '$datetime')";
+                $sql = "INSERT INTO transactions (user_id, type, amount, datetime) VALUES ($user_id, 'print_books', $total_cost, '$datetime')";
                 if (!$conn->query($sql)) {
                     throw new Exception('Failed to insert transaction');
                 }
@@ -238,6 +223,7 @@ curl_close($curl);
     </style>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
     <script>
 $(document).ready(function() {
     let printCount = <?php echo $printCount; ?>; // Get print count from PHP session
@@ -246,7 +232,7 @@ $(document).ready(function() {
     let cooldownRemaining = 0;
 
     // Update the print count display when the page loads
-    $("#printCount").text(printCount + "/" + maxPrintCount); // Initially display 0/5
+    $("#printCount").text(printCount + "/" + maxPrintCount); // Initially display count
 
     // Check for cooldown state in local storage
     const storedCooldownEndTime = localStorage.getItem('cooldownEndTime');
@@ -258,22 +244,24 @@ $(document).ready(function() {
         }
     }
 
-    // If print count is already 5, enable the print button
-    if (printCount === maxPrintCount) {
+    // If print count is already at max, enable the print button and disable the next button
+    if (printCount >= maxPrintCount) {
         $("#printButton").removeClass('disabled').prop('disabled', false); // Enable Print Book button
+        $("#nextButton").prop('disabled', true); // Disable Next button if at max count
     }
 
     // Handle "Next" button click
     $("#nextButton").click(function() {
-        // Check if the form fields are filled out
-        if (validateForm()) {
+        // Check if the form fields are filled out and validate all fields
+        if (validateForm() && validateAllFields()) {
             if (cooldownRemaining <= 0 && printCount < maxPrintCount) {
                 printCount++; // Increment print count
                 $("#printCount").text(printCount + "/" + maxPrintCount); // Update display text
 
-                // If printCount reaches 5, enable the print button
-                if (printCount === maxPrintCount) {
+                // If printCount reaches max, enable the print button and disable the next button
+                if (printCount >= maxPrintCount) {
                     $("#printButton").removeClass('disabled').prop('disabled', false); // Enable Print Book button
+                    $("#nextButton").prop('disabled', true); // Disable Next button
                 }
 
                 // Send an AJAX request to update the print count in the session
@@ -292,8 +280,8 @@ $(document).ready(function() {
                 });
             }
         } else {
-            // Show an error message if the form is not filled out
-            alert("Please fill out all required fields before proceeding.");
+            // Show an error message if validation fails
+            alert("Please fill out all required fields correctly before proceeding.");
         }
     });
 
@@ -309,6 +297,46 @@ $(document).ready(function() {
             }
         });
         return isValid;
+    }
+
+    // New function to validate all fields (customer_name, book_name, author_name, book_id)
+    function validateAllFields() {
+        const inputCustomerName = $("#customer_name").val().trim();
+        const inputBookName = $("#book_name").val().trim();
+        const inputAuthorName = $("#author_name").val().trim();
+        const inputBookId = $(".book_id").map(function() { return $(this).val().trim(); }).get().join('');
+
+        // Get the stored values from PHP
+        const storedCustomerName = "<?php echo addslashes($randomCustomerName); ?>";
+        const storedBookName = "<?php echo addslashes($randomBookName); ?>";
+        const storedAuthorName = "<?php echo addslashes($randomAuthorName); ?>";
+        const storedBookId = "<?php echo addslashes($randomBookId); ?>";
+
+        // Validate the inputs against the stored values
+        let errors = '';
+        if (inputCustomerName !== storedCustomerName) {
+            errors += 'Customer name is incorrect.<br>';
+        }
+        if (inputBookName !== storedBookName) {
+            errors += 'Book name is incorrect.<br>';
+        }
+        if (inputAuthorName !== storedAuthorName) {
+            errors += 'Author name is incorrect.<br>';
+        }
+        if (inputBookId !== storedBookId) {
+            errors += 'Book ID is incorrect.<br>';
+        }
+
+        // Show modal with errors if there are any
+        if (errors) {
+            $("#modalTitle").text("Error");
+            $("#modalHeader").removeClass('bg-success').addClass('bg-danger');
+            $("#modalMessage").html(errors); // Show the error message
+            $("#responseModal").modal('show'); // Show the modal
+            return false; // Return false to stop the process
+        } else {
+            return true; // No errors, return true to proceed
+        }
     }
 
     // Function to start a cooldown timer after successful print
@@ -331,14 +359,50 @@ $(document).ready(function() {
         }, 1000); // Decrease cooldown every second (1000 ms = 1 second)
     }
 
-    // Show modal and start cooldown after successful print
-    $(document).on("submit", "form[name='print_form']", function(e) {
+    // Handle form submission (print_form)
+    $(document).on("submit", "form[name='printss']", function(e) {
         e.preventDefault(); // Prevent the form from submitting normally
 
+        // Get the values from the inputs
+        const inputCustomerName = $("#customer_name").val().trim();
+        const inputBookName = $("#book_name").val().trim();
+        const inputAuthorName = $("#author_name").val().trim();
+        const inputBookId = $(".book_id").map(function() { return $(this).val().trim(); }).get().join('');
+
+        // Get the stored values from PHP
+        const storedCustomerName = "<?php echo addslashes($randomCustomerName); ?>";
+        const storedBookName = "<?php echo addslashes($randomBookName); ?>";
+        const storedAuthorName = "<?php echo addslashes($randomAuthorName); ?>";
+        const storedBookId = "<?php echo addslashes($randomBookId); ?>";
+
+        // Validate the inputs against the stored values
+        let errors = '';
+        if (inputCustomerName !== storedCustomerName) {
+            errors += 'Customer name is incorrect.<br>';
+        }
+        if (inputBookName !== storedBookName) {
+            errors += 'Book name is incorrect.<br>';
+        }
+        if (inputAuthorName !== storedAuthorName) {
+            errors += 'Author name is incorrect.<br>';
+        }
+        if (inputBookId !== storedBookId) {
+            errors += 'Book ID is incorrect.<br>';
+        }
+
+        if (errors) {
+            $("#modalTitle").text("Error");
+            $("#modalHeader").removeClass('bg-success').addClass('bg-danger');
+            $("#modalMessage").html(errors); // Show the error message
+            $("#responseModal").modal('show'); // Show the modal
+            return; // Exit the function early
+        }
+
+        // Proceed with the AJAX request if there are no errors
         $.ajax({
             type: "POST",
             url: "", // Current page
-            data: $(this).serialize() + "&print_form=1", // Include the print_form parameter
+            data: $(this).serialize() + "&printss=1", // Include the print_form parameter
             dataType: "json",
             success: function(response) {
                 var modalHeader = $("#modalHeader");
@@ -353,7 +417,7 @@ $(document).ready(function() {
 
                     // Reset the print count to 0
                     printCount = 0;
-                    $("#printCount").text(printCount + "/50"); // Reset display to 0/5
+                    $("#printCount").text(printCount + "/50"); // Reset display to 0/1
 
                     // Start cooldown timer
                     startCooldown();
@@ -378,21 +442,12 @@ $(document).ready(function() {
                 }
 
                 $("#responseModal").modal('show'); // Show the modal
-            },
-            error: function () {
-                $("#modalTitle").text("Error");
-                $("#modalMessage").text("Please activate print jobs.");
-                $("#modalHeader").removeClass('bg-success').addClass('bg-danger');
-                $("#responseModal").modal('show'); // Show the modal
             }
         });
     });
 });
+</script>
 
-</script>
-<script>
-    
-</script>
 </head>
 <body>
 <section class="content-header">
@@ -421,7 +476,7 @@ $(document).ready(function() {
                 <!-- Modern Card Layout for Balance and Print Wallet -->
                 <!-- Book Print Form -->
                 <div class="form-container mt-4">
-                    <form name="print_form" method="post" enctype="multipart/form-data">
+                    <form name="printss" method="post" enctype="multipart/form-data">
                         <div class="mb-3">
                             <p class="no-copy"><?php echo htmlspecialchars($randomCustomerName); ?></p>
                             <input type="text" id="customer_name" name="customer_name" placeholder="Customer Name"
@@ -441,23 +496,24 @@ $(document).ready(function() {
                             <p class="no-copy"><?php echo htmlspecialchars($randomBookId); ?></p>
                             
                             <div class="otp-container" style="display: flex; gap: 10px;">
-                                <!-- Creating 5 separate input boxes for OTP digits -->
-                                <input type="text" id="book_id" name="book_id" maxlength="1" class="form-control otp-input" required />
-                                <input type="text" id="book_id" name="book_id" maxlength="1" class="form-control otp-input" required />
-                                <input type="text" id="book_id" name="book_id" maxlength="1" class="form-control otp-input" required />
-                                <input type="text" id="book_id" name="book_id" maxlength="1" class="form-control otp-input" required />
-                                <input type="text" id="book_id" name="book_id" maxlength="1" class="form-control otp-input" required />
+                                <input type="text" class="form-control otp-input book_id" maxlength="1" required />
+                                <input type="text" class="form-control otp-input book_id" maxlength="1" required />
+                                <input type="text" class="form-control otp-input book_id" maxlength="1" required />
+                                <input type="text" class="form-control otp-input book_id" maxlength="1" required />
+                                <input type="text" class="form-control otp-input book_id" maxlength="1" required />
                             </div>
                         </div>
 
+
                         <div class="mb-3">
                                 <button type="button" id="nextButton" class="btn btn-primary">Next</button>
-                                <span id="printCount">1/10</span>
+                                <span id="printCount"></span>
                             </div>
-                            <button type="submit" id="printButton" name="print_form" style="background-color:#3eb3a8; color:white;" class="btn disabled" disabled>Print Book</button>
+                            <button type="submit" id="printButton" name="printss" style="background-color:#3eb3a8; color:white;" class="btn disabled" disabled>Print Book</button>
                         </form>
 
                 <!-- Bootstrap Modal -->
+               <!-- Bootstrap Modal -->
                 <div class="modal fade" id="responseModal" tabindex="-1" aria-labelledby="responseModalLabel" aria-hidden="true">
                     <div class="modal-dialog">
                         <div class="modal-content">
@@ -474,6 +530,7 @@ $(document).ready(function() {
                         </div>
                     </div>
                 </div>
+
 
                 <!-- End of Modal -->
             </div>
