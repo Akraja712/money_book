@@ -30,12 +30,12 @@ if (!isset($_SESSION['print_count'])) {
     $_SESSION['print_count'] = 0; // Start with 0 if not set
 }
 
-$printCount = min($_SESSION['print_count'], 10); // Cap at 10
+$printCount = min($_SESSION['print_count'], 50); // Cap at 10
 
 // Handle updating the print count via AJAX
 if (isset($_POST['update_print_count'])) {
     $newCount = intval($_POST['new_count']);
-    $_SESSION['print_count'] = min($newCount, 10); // Update the session value, capped at 10
+    $_SESSION['print_count'] = min($newCount, 50); // Update the session value, capped at 10
     echo json_encode(['status' => 'success', 'message' => 'Count updated']);
     exit();
 }
@@ -94,7 +94,7 @@ if (isset($_POST['print_form'])) {
 
     $error = []; // Initialize the error array early on
     shuffle($books);
-    $selectedBooks = array_slice($books, 0, 10); // Get 10 random books
+    $selectedBooks = array_slice($books, 0, 50); // Get 10 random books
   
     if (empty($errors)) {
         $print_cost = $_SESSION['print_cost'];
@@ -119,7 +119,7 @@ if (isset($_POST['print_form'])) {
                 $_SESSION['print_count'] = $newCount;
         
                 // Reset count after reaching max
-                if ($_SESSION['print_count'] >= 10) {
+                if ($_SESSION['print_count'] >= 50) {
                     $_SESSION['print_count'] = 0; // Reset count to 0 after reaching 10
                 }
                 $conn->commit();
@@ -239,8 +239,100 @@ curl_close($curl);
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-$(document).ready(function () {
-    $("form[name='print_form']").on("submit", function (e) {
+$(document).ready(function() {
+    let printCount = <?php echo $printCount; ?>; // Get print count from PHP session
+    const maxPrintCount = 50;
+    const cooldownTime = 60; // Cooldown time in seconds (1 minute)
+    let cooldownRemaining = 0;
+
+    // Update the print count display when the page loads
+    $("#printCount").text(printCount + "/" + maxPrintCount); // Initially display 0/5
+
+    // Check for cooldown state in local storage
+    const storedCooldownEndTime = localStorage.getItem('cooldownEndTime');
+    if (storedCooldownEndTime) {
+        const currentTime = Math.floor(Date.now() / 1000);
+        cooldownRemaining = storedCooldownEndTime - currentTime;
+        if (cooldownRemaining > 0) {
+            startCooldown(); // Start the cooldown if still remaining
+        }
+    }
+
+    // If print count is already 5, enable the print button
+    if (printCount === maxPrintCount) {
+        $("#printButton").removeClass('disabled').prop('disabled', false); // Enable Print Book button
+    }
+
+    // Handle "Next" button click
+    $("#nextButton").click(function() {
+        // Check if the form fields are filled out
+        if (validateForm()) {
+            if (cooldownRemaining <= 0 && printCount < maxPrintCount) {
+                printCount++; // Increment print count
+                $("#printCount").text(printCount + "/" + maxPrintCount); // Update display text
+
+                // If printCount reaches 5, enable the print button
+                if (printCount === maxPrintCount) {
+                    $("#printButton").removeClass('disabled').prop('disabled', false); // Enable Print Book button
+                }
+
+                // Send an AJAX request to update the print count in the session
+                $.ajax({
+                    type: "POST",
+                    url: "", // Current page
+                    data: { update_print_count: 1, new_count: printCount }, // Data to send
+                    success: function(response) {
+                        console.log("Count updated successfully");
+                        // Reload the page to reflect the updated count
+                        location.reload(); 
+                    },
+                    error: function() {
+                        console.error("Error updating count");
+                    }
+                });
+            }
+        } else {
+            // Show an error message if the form is not filled out
+            alert("Please fill out all required fields before proceeding.");
+        }
+    });
+
+    // Function to validate form fields
+    function validateForm() {
+        let isValid = true;
+        $("input[required]").each(function() {
+            if ($(this).val().trim() === "") {
+                isValid = false; // Set to false if any required field is empty
+                $(this).addClass("is-invalid"); // Add Bootstrap invalid class
+            } else {
+                $(this).removeClass("is-invalid"); // Remove invalid class if filled
+            }
+        });
+        return isValid;
+    }
+
+    // Function to start a cooldown timer after successful print
+    function startCooldown() {
+        cooldownRemaining = cooldownTime; // Start with 60 seconds
+        $("#nextButton").prop('disabled', true); // Disable Next button
+        const cooldownEndTime = Math.floor(Date.now() / 1000) + cooldownRemaining;
+        localStorage.setItem('cooldownEndTime', cooldownEndTime); // Store end time in local storage
+
+        // Update the button text with remaining time
+        const intervalId = setInterval(() => {
+            if (cooldownRemaining > 0) {
+                $("#nextButton").text(`Next (Sync in ${cooldownRemaining} seconds)`);
+                cooldownRemaining--;
+            } else {
+                clearInterval(intervalId); // Clear the timer once it reaches 0
+                $("#nextButton").prop('disabled', false).text("Next"); // Re-enable the button
+                localStorage.removeItem('cooldownEndTime'); // Clear the cooldown state
+            }
+        }, 1000); // Decrease cooldown every second (1000 ms = 1 second)
+    }
+
+    // Show modal and start cooldown after successful print
+    $(document).on("submit", "form[name='print_form']", function(e) {
         e.preventDefault(); // Prevent the form from submitting normally
 
         $.ajax({
@@ -248,7 +340,7 @@ $(document).ready(function () {
             url: "", // Current page
             data: $(this).serialize() + "&print_form=1", // Include the print_form parameter
             dataType: "json",
-            success: function (response) {
+            success: function(response) {
                 var modalHeader = $("#modalHeader");
                 var modalTitle = $("#modalTitle");
                 var modalMessage = $("#modalMessage");
@@ -259,9 +351,12 @@ $(document).ready(function () {
                     modalMessage.html(response.message); // Show the success message
                     $("form")[0].reset(); // Reset the form
 
-                    // Reset the print count from the response
-                    let printCount = response.new_count; // Get the new count from the response
-                    $("#printCount").text(printCount + "/10"); // Update display
+                    // Reset the print count to 0
+                    printCount = 0;
+                    $("#printCount").text(printCount + "/50"); // Reset display to 0/5
+
+                    // Start cooldown timer
+                    startCooldown();
 
                     // Refresh the page after a short delay
                     setTimeout(function () {
@@ -391,48 +486,5 @@ $(document).ready(function () {
     <!-- Bootstrap JavaScript Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 
-    <script>
- $(document).ready(function() {
-    let printCount = <?php echo $printCount; ?>; // Get print count from PHP session
-    const maxPrintCount = 10;
-
-    // Update the print count display when the page loads
-    $("#printCount").text(printCount + "/" + maxPrintCount); // Initially display 0/10
-
-    // If print count is already 10, enable the print button
-    if (printCount === maxPrintCount) {
-        $("#printButton").removeClass('disabled').prop('disabled', false); // Enable Print Book button
-    }
-
-    // Handle "Next" button click
-    $("#nextButton").click(function() {
-        if (printCount < maxPrintCount) {
-            printCount++; // Increment print count
-            $("#printCount").text(printCount + "/" + maxPrintCount); // Update display text
-
-            // If printCount reaches 10, enable the print button
-            if (printCount === maxPrintCount) {
-                $("#printButton").removeClass('disabled').prop('disabled', false); // Enable Print Book button
-            }
-
-            // Send an AJAX request to update the print count in the session
-            $.ajax({
-                type: "POST",
-                url: "", // Current page
-                data: { update_print_count: 1, new_count: printCount }, // Data to send
-                success: function(response) {
-                    console.log("Count updated successfully");
-                    // Reload the page to reflect the updated count
-                    location.reload(); 
-                },
-                error: function() {
-                    console.error("Error updating count");
-                }
-            });
-        }
-    });
-});
-
-    </script>
 </body>
 </html>
