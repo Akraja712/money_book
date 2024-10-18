@@ -35,12 +35,12 @@ if (!isset($_SESSION['print_count'])) {
     $_SESSION['print_count'] = 0;
 }
 
-$printCount = min($_SESSION['print_count'], 50); // Cap at 50
+$printCount = min($_SESSION['print_count'], 10); // Cap at 10
 
 // Handle updating the print count via AJAX
 if (isset($_POST['update_print_count'])) {
     $newCount = intval($_POST['new_count']);
-    $_SESSION['print_count'] = min($newCount, 50); // Update the session value, capped at 50
+    $_SESSION['print_count'] = min($newCount, 10); // Update the session value, capped at 10
     echo json_encode(['status' => 'success', 'message' => 'Count updated']);
     exit();
 }
@@ -58,6 +58,7 @@ if ($result->num_rows > 0) {
     echo "No records found.";
     exit();
 }
+
 
 // Clear old random values
 unset($_SESSION['random_customer_name'], $_SESSION['random_book_name'], $_SESSION['random_author_name'], $_SESSION['random_book_id']);
@@ -86,8 +87,8 @@ $_SESSION['random_book_id'] = $randomBookId;
         $conn->autocommit(FALSE);
 
         try {
-        // Calculate the total cost to be added (50 times the print cost)
-               $total_cost = 50 * $print_cost;
+        // Calculate the total cost to be added (10 times the print cost)
+               $total_cost = 10 * $print_cost;
                 // Update user balance
                 $sql = "UPDATE users SET balance = balance + $total_cost WHERE id = $user_id";
                 if (!$conn->query($sql)) {
@@ -104,7 +105,7 @@ $_SESSION['random_book_id'] = $randomBookId;
                 $_SESSION['print_count'] = $newCount;
         
                 // Reset count after reaching max
-                if ($_SESSION['print_count'] >= 50) {
+                if ($_SESSION['print_count'] >= 10) {
                     $_SESSION['print_count'] = 0; // Reset count to 0 after reaching 10
                 }
                 $conn->commit();
@@ -227,7 +228,7 @@ curl_close($curl);
     <script>
 $(document).ready(function() {
     let printCount = <?php echo $printCount; ?>; // Get print count from PHP session
-    const maxPrintCount = 50;
+    const maxPrintCount = 10;
     const cooldownTime = 60; // Cooldown time in seconds (1 minute)
     let cooldownRemaining = 0;
 
@@ -444,7 +445,7 @@ function showErrorModal(errors) {
 
                     // Reset the print count to 0
                     printCount = 0;
-                    $("#printCount").text(printCount + "/50"); // Reset display to 0/1
+                    $("#printCount").text(printCount + "/10"); // Reset display to 0/1
 
                     // Start cooldown timer
                     startCooldown();
